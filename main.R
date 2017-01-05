@@ -4,6 +4,7 @@ library(tidytext)
 library(lubridate)
 library(ggplot2)
 library(wordcloud)
+library(tidyr)
 
 strip.to.hours <- function(datetime){
     a <- date(datetime)
@@ -28,13 +29,44 @@ tweetscores.afinn <- tidytweets %>%
     group_by(id, created) %>%
     summarise(score = sum(score))
 
+tweetscores.bing <- tidytweets %>%
+    left_join(get_sentiments("bing"), by="word") %>%
+    mutate(sentiment = replace(sentiment, is.na(sentiment), "neutral")) %>%
+    count(id, created, sentiment) %>%
+    spread(sentiment, n, fill = 0) %>%
+    mutate(score = positive - negative)
+
+
+tweetscores.nrc <- tidytweets %>%
+    left_join(get_sentiments("nrc"), by="word") %>%
+    mutate(sentiment = replace(sentiment, is.na(sentiment), "neutral")) %>%
+    count(id, created, sentiment) %>%
+    spread(sentiment, n, fill = 0) %>%
+    mutate(score = positive - negative)
+
+
+ggplot(aes(created, positive - negative), data=tweetscores.nrc %>% filter(created > start.look)) +
+    geom_jitter(width=0, height=0.45, alpha=0.05) +
+    geom_vline(xintercept = as.numeric(end.series), linetype=4) +
+    geom_vline(xintercept = as.numeric(start.series), linetype=4) +
+    geom_smooth(aes(color="sentiment score")) +
+    geom_smooth( aes(y=joy, color="joy")) +
+    geom_smooth( aes(y=sadness, color="sadness")) +
+    scale_colour_brewer("Smoothers:", palette=2, type="qual",
+                        breaks = c("sentiment score", "sadness", "joy"),
+                        labels = c("Sentiment score", "Sadness", "Joy")) +
+    theme_bw() +
+    ylim(c(-4,4)) + ylab("Sentiment score")
+    
+
+
 ggplot(tweetscores.afinn %>% filter(created > start.look),
        aes(created, score)) +
     geom_jitter(alpha=0.05, width=0, height=0.45) +
     geom_smooth() +
     geom_vline(xintercept = as.numeric(end.series), linetype=4) +
     geom_vline(xintercept = as.numeric(start.series), linetype=4) +
-    theme_bw() + ylim(c(-10, 10))
+    theme_bw() + ylim(c(-10, 10)) 
 
 
 
